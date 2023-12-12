@@ -18,7 +18,8 @@ def uv_con(value, mode=0):
         mode (int or string, optional): The mode of conversion. Defaults to 0.
             0 or "analog": digital to analog.
             1 or "digital": analog to digital.
-            2 or "auto": automatically chooses one or the other, based on your initial value.
+            2 or "auto": automatically chooses one or the other, based on the type of your initial value. 
+            Raises AutoError if the value isn't an integer or float.
 
             Note: If 'mode' is set to anything other than the above values, this program 
             raises ValueError (if 'mode' is an integer) or TypeError (in all other cases).
@@ -90,7 +91,7 @@ class ArduinoInterface:
             output = self.device.query("OUT:CH0?")
         else:
             output = self.device.query(f"MEAS:CH{ch}?")
-        return output
+        return int(output)
 
 if __name__ == "__main__":
     raise slexc.AccessError("this file cannot be run directly")

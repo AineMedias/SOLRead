@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "solread"
-version = "0.3.0"
+version = "1.0.0"
 description = "Solar cell reader for Python 3.10+"
 authors = ["AineMedias <nurivandijk@hotmail.com>"]
 readme = "README.md"

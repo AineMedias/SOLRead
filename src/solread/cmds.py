@@ -2,12 +2,16 @@
 # SOLRead commands are defined here.
 # This file cannot be run by itself, use the command line to run these.
 
-import click, csv, math, pandas
+import csv
+import math
 import os.path as path
-import matplotlib.pyplot as plt
 
+import click
+import matplotlib.pyplot as plt
 from rich.console import Console
+
 from solread.mathcore import SolarCell, slexc
+
 try:
     from nsp2visasim import sim_pyvisa as pyvisa
 except ModuleNotFoundError:
@@ -74,7 +78,8 @@ def visualise_data(data, rich_console=""):
         vol_list, cur_list, vol_error, cur_error = data
     
     print("Generating graph", end="\r")
-    plt.errorbar(vol_list, cur_list, fmt="r.", xerr=vol_error, yerr=cur_error)
+    # plt.plot(vol_list, cur_list, 'b.')
+    plt.errorbar(vol_list, cur_list, fmt="ro", xerr=vol_error, yerr=cur_error)
     plt.ylabel("current [A]")
     plt.ylim(0)
     plt.xlabel("voltage [V]")
@@ -90,6 +95,20 @@ def visualise_data(data, rich_console=""):
 @click.group()
 def solread():
     pass
+
+@solread.command("info")
+def solinfo():
+    """Prints a short summary of what SOLRead is and what it does.
+    """
+    rich_console = Console()
+    rich_console.print("@2023 [red]Aine Productions[/].")
+    rich_console.print("[yellow]SOLRead v1.0.0[/], last updated [cyan]December 12th, 2023[/].")
+    rich_console.print("Solar cell reader for [yellow]Python 3.10+[/].")
+    rich_console.print("Allows users to determine the UI-characteristic of any solar cell.")
+    rich_console.print("[blue]Note:[/] Requires correct Arduino setup to work correctly. Consult setup by viewing [yellow]solarcellsetup.png[/].")
+
+
+
 
 @solread.command("list")
 @click.option("--search", "-s", type=str, help="Search active connections for a string matching the query.")
@@ -129,8 +148,8 @@ def get_connections(search):
 @click.option("--start", "-s", default=0, type=click.FloatRange(0, 3.296), help="Start scans at this value.", show_default=True)
 @click.option("--end", "-e", default=3.3, type=click.FloatRange(0.004, 3.3), help="End scans at this value.", show_default=True)
 @click.option("--graph/--no-graph", "-g/-ng", default=None, help="Choose whether to generate a graph or not.", show_default=True)
-@click.option("--save", "-s", default="", type=str, help="Choose whether to save data to a .csv file or not.", show_default=True)
-def readsol(port, resvalue, counts, start, end, graph, save):
+@click.option("--filesave", "-f", default="", type=str, help="Choose whether to save data to a .csv file or not.", show_default=True)
+def readsol(port, resvalue, counts, start, end, graph, filesave):
     """
     Starts the read of a solar cell from the command line interface.
     The scan is performed through the exec_experiment() class method.
@@ -139,12 +158,12 @@ def readsol(port, resvalue, counts, start, end, graph, save):
     If specified, uses all value lists to make a .csv file with the scribe_data() function instead and/or make a graph with the visualise_data() function. \f
 
     Args:
-        port (str): The port to initiate a scan from. readsol() looks for a port matching that name, and raises a NameError if it can't find one.
+        port (str): The port to initiate a scan from. readsol() looks for a port matching that name, and raises a NoConnectionError if it can't find one.
         counts (int, optional): The amount of scans that take place. More repeats decrease errors on values. Defaults to 5.
         start (int, optional): The scan start point. Defaults to 0 [range = {0, 3.296}]
         end (int, optional): The scan end point. Defaults to 3.3 [range = {0.003, 3.3}]
         graph (any, optional): If this argument is called using "-g" (or isn't None), also creates a graph.
-        save (string, optional): Where to save the scan results. This function will write data to save.csv.
+        filesave (string, optional): Where to save the scan results. This function will write data to filesave.csv.
     """
 
     rich_console = Console()
@@ -156,7 +175,7 @@ def readsol(port, resvalue, counts, start, end, graph, save):
 
     if len(available_ports) == 0:
         rich_console.print("[bold red]Finding port: failed[/]")
-        raise NameError(f"no connections detected matching string '{port}'")
+        raise slexc.NoConnectionError(f"no connections detected matching string '{port}'")
     elif len(available_ports) > 1:
         rich_console.print("Finding port: [green]complete[/]", style="bold")
         # if detecting multiple suitable ports, prints the names of each port and lets the user choose between them
@@ -176,14 +195,38 @@ def readsol(port, resvalue, counts, start, end, graph, save):
         rich_console.print("Finding port: [green]complete[/]", style="bold")
         port_option = available_ports[0]
 
-    # then, begin the experiment
-    cell = SolarCell(port_option)
-    voltages, vol_errors, currents, cur_errors = cell.exec_experiment(counts, start, end, resvalue)
 
+    # check and correct for user errors before executing the code
+    rich_console.print("[gray]Error checking...[/]", end="\r")
+    try:
+        cell = SolarCell(port_option)
+    except Exception as e:
+        rich_console.print("[bold red]Error checking: failed[/]")
+        print(f"Cannot connect to port '{port_option}': {str(e)}")
+        return
+    else:
+        rich_console.print("Error checking: [green]complete[/]")
+    if ".csv" in filesave:
+        save_file = filesave.replace(".csv", "")
+    else:
+        save_file = filesave
+
+    # then, begin the experiment
+    rich_console.print(f"Executing scan with following values:")
+    rich_console.print(f"port = [cyan]{port_option}[/], resistor current = [cyan]{resvalue}[/] V, counts = [cyan]{counts}[/], scan range = [cyan]{start}[/] to [cyan]{end}[/] V")
+    currents, cur_errors, voltages, vol_errors = cell.exec_experiment(counts, start, end, resvalue)
+
+    rich_console.print(f"Executing scan: [green]complete[/]")
     if graph:
         visualise_data((voltages, currents, vol_errors, cur_errors), rich_console)
 
-    if save:
-        scribe_data((voltages, currents, vol_errors, cur_errors), rich_console)
+    if filesave:
+        scribe_data((voltages, currents, vol_errors, cur_errors), save_file, rich_console)
 
     rich_console.print("Scanning complete!", style="green")
+    rm.close()
+
+
+# of course, an exception is raised if this file is directly run anyway
+if __name__ == "__main__":
+    raise slexc.AccessError("This file cannot be run directly. Use the command line interface to run these.")
