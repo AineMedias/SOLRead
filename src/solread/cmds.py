@@ -78,7 +78,6 @@ def visualise_data(data, rich_console=""):
         vol_list, cur_list, vol_error, cur_error = data
     
     print("Generating graph", end="\r")
-    # plt.plot(vol_list, cur_list, 'b.')
     plt.errorbar(vol_list, cur_list, fmt="ro", xerr=vol_error, yerr=cur_error)
     plt.ylabel("current [A]")
     plt.ylim(0)
@@ -102,7 +101,7 @@ def solinfo():
     """
     rich_console = Console()
     rich_console.print("@2023 [red]Aine Productions[/].")
-    rich_console.print("[yellow]SOLRead v1.0.0[/], last updated [cyan]December 12th, 2023[/].")
+    rich_console.print("[yellow]SOLRead v1.0.0a[/], last updated [cyan]December 12th, 2023[/].")
     rich_console.print("Solar cell reader for [yellow]Python 3.10+[/].")
     rich_console.print("Allows users to determine the UI-characteristic of any solar cell.")
     rich_console.print("[blue]Note:[/] Requires correct Arduino setup to work correctly. Consult setup by viewing [yellow]solarcellsetup.png[/].")
@@ -113,7 +112,7 @@ def solinfo():
 @solread.command("list")
 @click.option("--search", "-s", type=str, help="Search active connections for a string matching the query.")
 def get_connections(search):
-    """Retrieve the port names of active connections.
+    """Retrieve the port names of available connections.
     Port names are retrieves through the use of a pyvisa ResourceManager.
 
     Optionally, looks for specific strings in the port names if 'search' is specified.
@@ -178,6 +177,7 @@ def readsol(port, resvalue, counts, start, end, graph, filesave):
         raise slexc.NoConnectionError(f"no connections detected matching string '{port}'")
     elif len(available_ports) > 1:
         rich_console.print("Finding port: [green]complete[/]", style="bold")
+        
         # if detecting multiple suitable ports, prints the names of each port and lets the user choose between them
         rich_console.print(f"[blue]Note:[/] Multiple connections detected matching string [bright_cyan]{port}[/]")
         for options in range(0, len(available_ports)):
